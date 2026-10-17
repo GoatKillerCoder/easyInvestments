@@ -1,0 +1,8 @@
+DATABASE_URL=postgresql://neondb_owner:YOUR_NEW_PASSWORD@YOUR_NEON_HOST/neondb?sslmode=require
+ADMIN_PIN=replace-with-a-private-admin-pin
+ADMIN_SESSION_SECRET=generate-a-random-secret-of-at-least-32-bytes
+ADMIN_USER_ID=replace-with-the-UUID-of-an-active-support-user-in-users
+OPENAI_API_KEY=replace-with-your-openai-api-key
+YOCO_SECRET_KEY=replace-with-your-yoco-secret-key
+YOCO_WEBHOOK_SECRET=whsec_replace-with-the-secret-from-yoco
+APP_BASE_URL=http://localhost:8080
