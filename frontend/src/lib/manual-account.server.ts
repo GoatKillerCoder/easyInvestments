@@ -1,5 +1,4 @@
 import { neon } from "@neondatabase/serverless";
-import { createServerFn } from "@tanstack/react-start";
 import { getRequest } from "@tanstack/react-start/server";
 import { z } from "zod";
 import { createUserSessionToken, verifyUserSessionToken } from "@/lib/user-session.server";
@@ -385,34 +384,40 @@ async function readAccounts(includeWithdrawalRequests = true): Promise<StoredMan
   });
 }
 
-export const authenticateAdminServerFn = createServerFn({ method: "POST" })
-  .validator((data: unknown) => adminPinSchema.parse(data))
-  .handler(async ({ data }) => {
-    if (!constantTimeEqual(data.pin, environmentValue("ADMIN_PIN"))) {
-      throw new Error("The admin PIN is incorrect.");
-    }
-    return createAdminToken();
-  });
+export async function authenticateAdminServerFn({
+  data,
+}: {
+  data: z.infer<typeof adminPinSchema>;
+}) {
+  if (!constantTimeEqual(data.pin, environmentValue("ADMIN_PIN"))) {
+    throw new Error("The admin PIN is incorrect.");
+  }
+  return createAdminToken();
+}
 
-export const getManualAccountsServerFn = createServerFn({ method: "POST" })
-  .validator((data: unknown) => adminTokenSchema.parse(data))
-  .handler(async ({ data }) => {
-    await requireAdminToken(data.adminToken);
-    const accounts = await readAccounts(false);
-    return accounts.map(toPublicAccount);
-  });
+export async function getManualAccountsServerFn({
+  data,
+}: {
+  data: z.infer<typeof adminTokenSchema>;
+}) {
+  await requireAdminToken(data.adminToken);
+  const accounts = await readAccounts(false);
+  return accounts.map(toPublicAccount);
+}
 
-export const getManualAccountServerFn = createServerFn({ method: "GET" })
-  .validator((data: unknown) => accountIdSchema.parse(data))
-  .handler(async ({ data }) => {
-    const userId = await verifyUserSessionToken(data.sessionToken);
-    if (!userId || userId !== data.id) {
-      throw new Error("A valid session for this account is required.");
-    }
-    const accounts = await readAccounts();
-    const account = accounts.find((candidate) => candidate.id === data.id);
-    return account ? toPublicAccount(account) : undefined;
-  });
+export async function getManualAccountServerFn({
+  data,
+}: {
+  data: z.infer<typeof accountIdSchema>;
+}) {
+  const userId = await verifyUserSessionToken(data.sessionToken);
+  if (!userId || userId !== data.id) {
+    throw new Error("A valid session for this account is required.");
+  }
+  const accounts = await readAccounts();
+  const account = accounts.find((candidate) => candidate.id === data.id);
+  return account ? toPublicAccount(account) : undefined;
+}
 
 async function createAccount(data: ManualAccountRegistration): Promise<ManualAccount> {
   await ensureUserCompanyColumn();
@@ -481,46 +486,54 @@ async function createAccount(data: ManualAccountRegistration): Promise<ManualAcc
   return toPublicAccount(account);
 }
 
-export const registerManualAccountServerFn = createServerFn({ method: "POST" })
-  .validator((data: unknown): ManualAccountRegistration => registrationSchema.parse(data))
-  .handler(async ({ data }) => createAccount(data));
+export async function registerManualAccountServerFn({
+  data,
+}: {
+  data: z.infer<typeof registrationSchema>;
+}) {
+  return createAccount(data);
+}
 
-export const registerAdminManualAccountServerFn = createServerFn({ method: "POST" })
-  .validator((data: unknown) => adminRegistrationSchema.parse(data))
-  .handler(async ({ data }) => {
-    await requireAdminToken(data.adminToken);
-    return createAccount(data.registration);
-  });
+export async function registerAdminManualAccountServerFn({
+  data,
+}: {
+  data: z.infer<typeof adminRegistrationSchema>;
+}) {
+  await requireAdminToken(data.adminToken);
+  return createAccount(data.registration);
+}
 
-export const updateAdminManualAccountServerFn = createServerFn({ method: "POST" })
-  .validator((data: unknown) => adminAccountUpdateSchema.parse(data))
-  .handler(async ({ data }) => {
-    await requireAdminToken(data.adminToken);
-    await ensureUserCompanyColumn();
+export async function updateAdminManualAccountServerFn({
+  data,
+}: {
+  data: z.infer<typeof adminAccountUpdateSchema>;
+}) {
+  await requireAdminToken(data.adminToken);
+  await ensureUserCompanyColumn();
 
-    const sql = database();
-    const account = {
-      ...data.account,
-      email: data.account.email.toLowerCase(),
-      portfolioValue: calculatePortfolioValue(data.account.balance, data.account.totalInvested),
-    };
-    const [existingAccount, duplicateEmail] = await Promise.all([
-      sql`SELECT 1 FROM users WHERE id = ${account.id}::uuid LIMIT 1`,
-      sql`SELECT 1 FROM users
+  const sql = database();
+  const account = {
+    ...data.account,
+    email: data.account.email.toLowerCase(),
+    portfolioValue: calculatePortfolioValue(data.account.balance, data.account.totalInvested),
+  };
+  const [existingAccount, duplicateEmail] = await Promise.all([
+    sql`SELECT 1 FROM users WHERE id = ${account.id}::uuid LIMIT 1`,
+    sql`SELECT 1 FROM users
           WHERE LOWER(email) = ${account.email} AND id <> ${account.id}::uuid
           LIMIT 1`,
-    ]);
+  ]);
 
-    if (existingAccount.length === 0) {
-      throw new Error("The account to update was not found.");
-    }
-    if (duplicateEmail.length > 0) {
-      throw new Error("An account with this email address is already registered.");
-    }
+  if (existingAccount.length === 0) {
+    throw new Error("The account to update was not found.");
+  }
+  if (duplicateEmail.length > 0) {
+    throw new Error("An account with this email address is already registered.");
+  }
 
-    const credentials = data.password ? await hashPassword(data.password) : undefined;
-    const statements = [
-      sql`UPDATE users SET
+  const credentials = data.password ? await hashPassword(data.password) : undefined;
+  const statements = [
+    sql`UPDATE users SET
             full_name = ${account.fullName},
             email = ${account.email},
             password_salt = COALESCE(${credentials?.passwordSalt ?? null}, password_salt),
@@ -538,9 +551,9 @@ export const updateAdminManualAccountServerFn = createServerFn({ method: "POST" 
             portfolio_value = ${account.portfolioValue},
             total_invested = ${account.totalInvested}
           WHERE id = ${account.id}::uuid`,
-      sql`DELETE FROM portfolio_holdings WHERE user_id = ${account.id}::uuid`,
-      sql`DELETE FROM transactions WHERE user_id = ${account.id}::uuid`,
-      sql`INSERT INTO portfolio_holdings (
+    sql`DELETE FROM portfolio_holdings WHERE user_id = ${account.id}::uuid`,
+    sql`DELETE FROM transactions WHERE user_id = ${account.id}::uuid`,
+    sql`INSERT INTO portfolio_holdings (
             user_id, fund_name, ticker, market_value, change_pct
           )
           SELECT ${account.id}::uuid, holding.fund_name, holding.ticker,
@@ -555,7 +568,7 @@ export const updateAdminManualAccountServerFn = createServerFn({ method: "POST" 
           )}::jsonb) AS holding(
             fund_name text, ticker text, market_value numeric, change_pct text
           )`,
-      sql`INSERT INTO transactions (
+    sql`INSERT INTO transactions (
             user_id, transaction_date, type, method, status, amount
           )
           SELECT ${account.id}::uuid, transaction.transaction_date::date,
@@ -572,134 +585,144 @@ export const updateAdminManualAccountServerFn = createServerFn({ method: "POST" 
           )}::jsonb) AS transaction(
             transaction_date text, type text, method text, status text, amount numeric
           )`,
-    ];
+  ];
 
-    await sql.transaction(statements);
-    return account;
-  });
+  await sql.transaction(statements);
+  return account;
+}
 
-export const updateAdminManualAccountStatusServerFn = createServerFn({ method: "POST" })
-  .validator((data: unknown) => adminAccountStatusUpdateSchema.parse(data))
-  .handler(async ({ data }) => {
-    await requireAdminToken(data.adminToken);
+export async function updateAdminManualAccountStatusServerFn({
+  data,
+}: {
+  data: z.infer<typeof adminAccountStatusUpdateSchema>;
+}) {
+  await requireAdminToken(data.adminToken);
 
-    const updated = await database()`
+  const updated = await database()`
       UPDATE users
       SET status = ${data.status}
       WHERE id = ${data.id}::uuid
       RETURNING id
     `;
-    if (updated.length === 0) {
-      throw new Error("The account to update was not found.");
-    }
-    return { id: data.id, status: data.status };
-  });
+  if (updated.length === 0) {
+    throw new Error("The account to update was not found.");
+  }
+  return { id: data.id, status: data.status };
+}
 
-export const deleteAdminManualAccountServerFn = createServerFn({ method: "POST" })
-  .validator((data: unknown) => adminAccountDeleteSchema.parse(data))
-  .handler(async ({ data }) => {
-    await requireAdminToken(data.adminToken);
+export async function deleteAdminManualAccountServerFn({
+  data,
+}: {
+  data: z.infer<typeof adminAccountDeleteSchema>;
+}) {
+  await requireAdminToken(data.adminToken);
 
-    const sql = database();
-    const deleted = await sql`DELETE FROM users WHERE id = ${data.id}::uuid RETURNING id`;
-    if (deleted.length === 0) {
-      throw new Error("The account to delete was not found.");
-    }
-    return { id: data.id };
-  });
+  const sql = database();
+  const deleted = await sql`DELETE FROM users WHERE id = ${data.id}::uuid RETURNING id`;
+  if (deleted.length === 0) {
+    throw new Error("The account to delete was not found.");
+  }
+  return { id: data.id };
+}
 
-export const authenticateManualAccountServerFn = createServerFn({ method: "POST" })
-  .validator((data: unknown) => loginSchema.parse(data))
-  .handler(async ({ data }) => {
-    const accounts = await readAccounts();
-    const account = accounts.find(
-      (candidate) =>
-        candidate.email.toLowerCase() === data.email.toLowerCase() &&
-        candidate.company.trim().toLowerCase() === data.company.toLowerCase(),
-    );
-    if (!account || !account.passwordSalt || !account.passwordHash) {
-      return null;
-    }
-
-    const submittedCredentials = await hashPassword(data.password, account.passwordSalt);
-    if (!constantTimeEqual(submittedCredentials.passwordHash, account.passwordHash)) {
-      return null;
-    }
-    if (account.status === "Active") {
-      return {
-        ...toPublicAccount(account),
-        sessionToken: await createUserSessionToken(account.id),
-      };
-    }
-    if (
-      account.status === "Deactivated" ||
-      account.status === "Suspended" ||
-      account.status === "Pending"
-    ) {
-      return { restrictedStatus: account.status };
-    }
+export async function authenticateManualAccountServerFn({
+  data,
+}: {
+  data: z.infer<typeof loginSchema>;
+}) {
+  const accounts = await readAccounts();
+  const account = accounts.find(
+    (candidate) =>
+      candidate.email.toLowerCase() === data.email.toLowerCase() &&
+      candidate.company.trim().toLowerCase() === data.company.toLowerCase(),
+  );
+  if (!account || !account.passwordSalt || !account.passwordHash) {
     return null;
-  });
+  }
 
-export const deactivateManualAccountServerFn = createServerFn({ method: "POST" })
-  .validator((data: unknown) => deactivateAccountSchema.parse(data))
-  .handler(async ({ data }) => {
-    const sql = database();
-    const rows = await sql`
+  const submittedCredentials = await hashPassword(data.password, account.passwordSalt);
+  if (!constantTimeEqual(submittedCredentials.passwordHash, account.passwordHash)) {
+    return null;
+  }
+  if (account.status === "Active") {
+    return {
+      ...toPublicAccount(account),
+      sessionToken: await createUserSessionToken(account.id),
+    };
+  }
+  if (
+    account.status === "Deactivated" ||
+    account.status === "Suspended" ||
+    account.status === "Pending"
+  ) {
+    return { restrictedStatus: account.status };
+  }
+  return null;
+}
+
+export async function deactivateManualAccountServerFn({
+  data,
+}: {
+  data: z.infer<typeof deactivateAccountSchema>;
+}) {
+  const sql = database();
+  const rows = await sql`
       SELECT password_salt, password_hash, status
       FROM users
       WHERE id = ${data.id}::uuid
       LIMIT 1
     `;
-    const account = rows[0] as
-      { password_salt: string; password_hash: string; status: string } | undefined;
+  const account = rows[0] as
+    { password_salt: string; password_hash: string; status: string } | undefined;
 
-    if (!account?.password_salt || !account.password_hash || account.status !== "Active") {
-      return { deactivated: false };
-    }
+  if (!account?.password_salt || !account.password_hash || account.status !== "Active") {
+    return { deactivated: false };
+  }
 
-    const submittedCredentials = await hashPassword(data.password, account.password_salt);
-    if (!constantTimeEqual(submittedCredentials.passwordHash, account.password_hash)) {
-      return { deactivated: false };
-    }
+  const submittedCredentials = await hashPassword(data.password, account.password_salt);
+  if (!constantTimeEqual(submittedCredentials.passwordHash, account.password_hash)) {
+    return { deactivated: false };
+  }
 
-    const updated = await sql`
+  const updated = await sql`
       UPDATE users
       SET status = 'Deactivated'
       WHERE id = ${data.id}::uuid AND status = 'Active'
       RETURNING id
     `;
-    return { deactivated: updated.length > 0 };
-  });
+  return { deactivated: updated.length > 0 };
+}
 
-export const changeManualAccountPasswordServerFn = createServerFn({ method: "POST" })
-  .validator((data: unknown) => changePasswordSchema.parse(data))
-  .handler(async ({ data }) => {
-    const sql = database();
-    const rows = await sql`
+export async function changeManualAccountPasswordServerFn({
+  data,
+}: {
+  data: z.infer<typeof changePasswordSchema>;
+}) {
+  const sql = database();
+  const rows = await sql`
       SELECT password_salt, password_hash
       FROM users
       WHERE id = ${data.id}::uuid
       LIMIT 1
     `;
-    const account = rows[0] as { password_salt: string; password_hash: string } | undefined;
+  const account = rows[0] as { password_salt: string; password_hash: string } | undefined;
 
-    if (!account?.password_salt || !account.password_hash) {
-      return { updated: false };
-    }
+  if (!account?.password_salt || !account.password_hash) {
+    return { updated: false };
+  }
 
-    const submittedCredentials = await hashPassword(data.currentPassword, account.password_salt);
-    if (!constantTimeEqual(submittedCredentials.passwordHash, account.password_hash)) {
-      return { updated: false };
-    }
+  const submittedCredentials = await hashPassword(data.currentPassword, account.password_salt);
+  if (!constantTimeEqual(submittedCredentials.passwordHash, account.password_hash)) {
+    return { updated: false };
+  }
 
-    const credentials = await hashPassword(data.newPassword);
-    const updated = await sql`
+  const credentials = await hashPassword(data.newPassword);
+  const updated = await sql`
       UPDATE users
       SET password_salt = ${credentials.passwordSalt},
           password_hash = ${credentials.passwordHash}
       WHERE id = ${data.id}::uuid
       RETURNING id
     `;
-    return { updated: updated.length > 0 };
-  });
+  return { updated: updated.length > 0 };
+}
