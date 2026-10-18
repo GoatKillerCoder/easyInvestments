@@ -110,6 +110,7 @@ async function ensureTables() {
     size_bytes integer NOT NULL CHECK (size_bytes > 0),
     sha256 text NOT NULL,
     created_at timestamptz NOT NULL DEFAULT NOW(),
+    UNIQUE (user_id, sha256)
   )`;
   await sql`ALTER TABLE deposit_documents ADD COLUMN IF NOT EXISTS payment_reference text`;
 }
