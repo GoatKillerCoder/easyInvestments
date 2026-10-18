@@ -80,6 +80,12 @@ export const sendClientMessageServerFn = createServerFn({ method: "POST" })
     invoke("client message write", (backend) => backend.sendClientMessage(data)),
   );
 
+export const countAdminUnreadServerFn = createServerFn({ method: "POST" })
+  .validator((data: unknown) => adminSchema.parse(data))
+  .handler(async ({ data }) =>
+    invoke("administrator unread count", (backend) => backend.countAdminUnreadConversations(data)),
+  );
+
 export const listAdminConversationsServerFn = createServerFn({ method: "POST" })
   .validator((data: unknown) => adminListSchema.parse(data))
   .handler(async ({ data }) =>

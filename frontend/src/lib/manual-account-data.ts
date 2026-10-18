@@ -54,7 +54,11 @@ export type ManualAccount = {
   totalInvested: number;
   holdings: PortfolioHolding[];
   transactions: AccountTransaction[];
+  deletionBlocked?: boolean;
 };
+
+export const DELETE_BLOCKED_MESSAGE =
+  "This user cannot be deleted because they have an existing payment record or proof of payment on file.";
 
 export type ManualAccountRegistration = {
   account: ManualAccount;

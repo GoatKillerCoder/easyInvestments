@@ -1,4 +1,5 @@
 import {
+  countAdminUnreadServerFn,
   createClientConversationServerFn,
   getAdminConversationServerFn,
   getClientConversationServerFn,
@@ -76,6 +77,10 @@ export function sendClientMessage(data: {
   message: string;
 }) {
   return sendClientMessageServerFn({ data });
+}
+
+export function countAdminUnreadConversations(adminToken: string) {
+  return countAdminUnreadServerFn({ data: { adminToken } });
 }
 
 export function listAdminConversations(data: {

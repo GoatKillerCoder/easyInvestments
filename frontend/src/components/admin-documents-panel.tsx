@@ -90,8 +90,8 @@ export function AdminDocumentsPanel({ adminToken }: { adminToken: string }) {
         <button
           type="button"
           onClick={() => void connect()}
-          disabled={isConnecting}
-          className="rounded-lg border border-input px-4 py-2 text-sm font-bold hover:bg-muted disabled:opacity-60"
+          disabled={isConnecting || status?.connected}
+          className="rounded-lg border border-input px-4 py-2 text-sm font-bold hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60"
         >
           {isConnecting ? "Redirecting…" : status?.connected ? "Reconnect Google Drive" : "Connect Google Drive"}
         </button>
@@ -99,7 +99,7 @@ export function AdminDocumentsPanel({ adminToken }: { adminToken: string }) {
 
       <p className="mb-4 text-sm">
         {status?.connected
-          ? `Google Drive connected${status.accountEmail ? ` as ${status.accountEmail}` : ""}.`
+          ? ""
           : "Google Drive is not connected. Users cannot upload documents until an administrator connects it."}
       </p>
       {message && (

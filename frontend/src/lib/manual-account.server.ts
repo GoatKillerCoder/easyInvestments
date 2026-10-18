@@ -2,11 +2,12 @@ import { neon } from "@neondatabase/serverless";
 import { getRequest } from "@tanstack/react-start/server";
 import { z } from "zod";
 import { createUserSessionToken, verifyUserSessionToken } from "@/lib/user-session.server";
-import type {
-  AccountTransaction,
-  ManualAccount,
-  ManualAccountRegistration,
-  PortfolioHolding,
+import {
+  DELETE_BLOCKED_MESSAGE,
+  type AccountTransaction,
+  type ManualAccount,
+  type ManualAccountRegistration,
+  type PortfolioHolding,
 } from "@/lib/manual-account-data";
 
 const PASSWORD_ITERATIONS = 210_000;
@@ -314,6 +315,33 @@ function calculatePortfolioValue(balance: number, totalInvested: number): number
   return (Math.round(balance * 100) + Math.round(totalInvested * 100)) / 100;
 }
 
+// Users with a successful Yoco payment or any uploaded proof of payment (checked independently).
+async function readPaymentProtectedUserIds(userId?: string): Promise<Set<string>> {
+  const sql = database();
+  const filter = userId ?? null;
+  const yoco = await sql`SELECT DISTINCT user_id::text AS user_id FROM payment_attempts
+    WHERE status = 'Paid' AND (${filter}::uuid IS NULL OR user_id = ${filter}::uuid)`;
+  const tableExists = await sql`SELECT to_regclass('public.deposit_documents') AS name`;
+  const documents = tableExists[0]?.["name"]
+    ? await sql`SELECT DISTINCT user_id::text AS user_id FROM deposit_documents
+        WHERE (${filter}::uuid IS NULL OR user_id = ${filter}::uuid)`
+    : [];
+  const protectedIds = new Set([...yoco, ...documents].map((row) => String(row["user_id"])));
+
+  // The configured support/admin account must never be deleted.
+  let supportId: string | null = null;
+  try {
+    supportId = environmentValue("ADMIN_USER_ID");
+  } catch {
+    supportId = null;
+  }
+  const support = await sql`SELECT id::text AS id FROM users
+    WHERE lower(email) = 'support@easyequities.invalid'
+      OR (${supportId}::text IS NOT NULL AND id::text = ${supportId}::text)`;
+  for (const row of support) protectedIds.add(String(row["id"]));
+  return protectedIds;
+}
+
 async function readAccounts(includeWithdrawalRequests = true): Promise<StoredManualAccount[]> {
   const sql = database();
   await ensureUserCompanyColumn();
@@ -411,7 +439,11 @@ export async function getManualAccountsServerFn({
 }) {
   await requireAdminToken(data.adminToken);
   const accounts = await readAccounts(false);
-  return accounts.map(toPublicAccount);
+  const protectedIds = await readPaymentProtectedUserIds();
+  return accounts.map((account) => ({
+    ...toPublicAccount(account),
+    deletionBlocked: protectedIds.has(account.id),
+  }));
 }
 
 export async function getManualAccountServerFn({
@@ -627,6 +659,9 @@ export async function deleteAdminManualAccountServerFn({
   await requireAdminToken(data.adminToken);
 
   const sql = database();
+  if ((await readPaymentProtectedUserIds(data.id)).has(data.id)) {
+    throw new Error(DELETE_BLOCKED_MESSAGE);
+  }
   const deleted = await sql`DELETE FROM users WHERE id = ${data.id}::uuid RETURNING id`;
   if (deleted.length === 0) {
     throw new Error("The account to delete was not found.");

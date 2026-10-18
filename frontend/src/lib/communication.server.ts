@@ -322,6 +322,26 @@ function adminInboxConditions({
   };
 }
 
+export async function countAdminUnreadConversations(data: { adminToken: string }) {
+  await requireAdmin(data.adminToken);
+  const sql = database();
+  const rows = (await sql`
+    SELECT COUNT(*)::int AS count
+    FROM chat_conversations c
+    WHERE c.status IN ('Open', 'Pending')
+      AND EXISTS (
+        SELECT 1
+        FROM chat_messages m
+        WHERE m.conversation_id = c.id
+          AND m.sender_role = 'client'
+          AND m.message_type = 'text'
+          AND m.deleted_at IS NULL
+          AND m.created_at > COALESCE(c.admin_last_read_at, '-infinity'::timestamptz)
+      )
+  `) as { count: number }[];
+  return { count: Number(rows[0]?.count ?? 0) };
+}
+
 export async function listAdminConversations(data: {
   adminToken: string;
   search: string;

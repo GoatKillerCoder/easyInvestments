@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { useEffect, useState, type FormEvent } from "react";
 import { AdminDocumentsPanel } from "@/components/admin-documents-panel";
+import { countAdminUnreadConversations } from "@/lib/communication-data";
 import { brokerPartners } from "@/lib/broker-partners";
 import {
   authenticateAdmin,
@@ -35,6 +36,7 @@ import {
   type AccountTransaction,
   type ManualAccount,
   type PortfolioHolding,
+  DELETE_BLOCKED_MESSAGE,
 } from "@/lib/manual-account-data";
 
 export const Route = createFileRoute("/admin")({
@@ -126,6 +128,8 @@ function AdminPage() {
   const [adminPin, setAdminPin] = useState("");
   const [adminToken, setAdminToken] = useState("");
   const [isCheckingAccess, setIsCheckingAccess] = useState(true);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [showUnreadAlert, setShowUnreadAlert] = useState(false);
   const [isSigningIn, setIsSigningIn] = useState(false);
   const [isRefreshingAccounts, setIsRefreshingAccounts] = useState(false);
   const [updatingWithdrawalReference, setUpdatingWithdrawalReference] = useState("");
@@ -173,6 +177,16 @@ function AdminPage() {
       })
       .finally(() => setIsCheckingAccess(false));
   }, []);
+
+  useEffect(() => {
+    if (!adminToken) return;
+    void countAdminUnreadConversations(adminToken)
+      .then(({ count }) => {
+        setUnreadCount(count);
+        if (count > 0) setShowUnreadAlert(true);
+      })
+      .catch((error: unknown) => console.error("Unable to check unread messages.", error));
+  }, [adminToken]);
 
   async function handleAdminLogin(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -334,6 +348,7 @@ function AdminPage() {
   }
 
   async function handleDelete(account: ManualAccount) {
+    if (account.deletionBlocked) return;
     if (!adminToken || !window.confirm(`Permanently delete ${account.fullName}'s account?`)) {
       return;
     }
@@ -346,7 +361,11 @@ function AdminPage() {
       setNotice(`Deleted ${account.fullName}'s account.`);
     } catch (error) {
       console.error("Unable to delete the account from Neon.", error);
-      setNotice("The account could not be deleted. Check your admin session and try again.");
+      setNotice(
+        error instanceof Error && error.message === DELETE_BLOCKED_MESSAGE
+          ? ""
+          : "The account could not be deleted. Check your admin session and try again.",
+      );
     }
   }
 
@@ -441,8 +460,8 @@ function AdminPage() {
       setAccounts(await getManualAccounts(adminToken));
       setNotice(
         editingAccountId
-          ? `Updated ${account.fullName} in the Neon database.`
-          : `Saved ${account.fullName} to the Neon database.`,
+          ? `Updated ${account.fullName} in the database.`
+          : `Saved ${account.fullName} to the database.`,
       );
       resetAccountForm();
     } catch (error) {
@@ -556,6 +575,39 @@ function AdminPage() {
         </header>
 
         <AdminDocumentsPanel adminToken={adminToken} />
+        {showUnreadAlert && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="unread-alert-title"
+          >
+            <div className="w-full max-w-md rounded-2xl border border-border bg-card p-6 shadow-xl">
+              <h2 id="unread-alert-title" className="text-xl font-extrabold">
+                Unread client messages
+              </h2>
+              <p className="mt-3 text-sm text-muted-foreground">
+                You have {unreadCount} unread client conversation{unreadCount === 1 ? "" : "s"}.
+                Please click <strong>Client communications</strong> to respond to your clients first.
+              </p>
+              <div className="mt-6 flex flex-wrap justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowUnreadAlert(false)}
+                  className="rounded-lg border border-input px-4 py-2 text-sm font-bold hover:bg-muted"
+                >
+                  Later
+                </button>
+                <Link
+                  to="/admin/communications"
+                  className="rounded-lg bg-primary px-4 py-2 text-sm font-bold text-primary-foreground hover:opacity-90"
+                >
+                  Client communications
+                </Link>
+              </div>
+            </div>
+          </div>
+        )}
 
         <section className="mb-8 rounded-2xl border border-border bg-card p-5 shadow-sm sm:p-7">
           <div className="mb-5">
@@ -1060,7 +1112,8 @@ function AdminPage() {
                     <button
                       type="button"
                       onClick={() => void handleDelete(account)}
-                      className="inline-flex items-center gap-2 rounded-lg border border-destructive/40 px-3 py-2 text-sm font-bold text-destructive hover:bg-destructive/5"
+                      disabled={account.deletionBlocked}
+                      className="inline-flex items-center gap-2 rounded-lg border border-destructive/40 px-3 py-2 text-sm font-bold text-destructive hover:bg-destructive/5 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent"
                     >
                       <Trash2 className="size-4" aria-hidden="true" />
                       Delete
@@ -1077,7 +1130,7 @@ function AdminPage() {
         </section>
 
         <p className="mt-5 text-sm text-muted-foreground">
-          User records are read from and written to the configured Neon database.
+          User records are read from and written to the configured database.
         </p>
       </div>
     </main>
