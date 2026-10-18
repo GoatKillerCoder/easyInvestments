@@ -3,6 +3,7 @@ import { Bell, Bot, LayoutDashboard, LogOut, Send, Wallet } from "lucide-react";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { getUserSessionToken } from "@/lib/manual-account-data";
 import { mayaChatServerFn } from "@/lib/maya-server";
+import { MAYA_EMAILS, mayaGreeting } from "@/lib/maya-knowledge";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -42,7 +43,7 @@ type ChatMessage = {
   text: string;
 };
 
-const SUPPORT_EMAIL = "accounts@easyequities-sa.co.za";
+const SUPPORT_EMAIL = MAYA_EMAILS.support;
 const MAX_INPUT_LENGTH = 1000;
 const FALLBACK_REPLY = `I'm having trouble answering right now. Please try again in a moment, or email ${SUPPORT_EMAIL} and our team will help.`;
 const RATE_LIMIT_REPLY =
@@ -51,6 +52,8 @@ const RATE_LIMIT_REPLY =
 const pageLinks = {
   "/dashboard": "/dashboard",
   "/finances": "/finances",
+  "/communication": "/communication",
+  "/register": "/register",
   "/rewards-hub": "/rewards-hub",
   "/vps-service": "/vps-service",
   "/analytics-education": "/analytics-education",
@@ -62,13 +65,24 @@ const pageLinks = {
 } as const;
 
 function renderMessageText(text: string) {
+  return text.split(/(\*\*[^*\n]+\*\*)/g).map((segment, segmentIndex) => {
+    const bold = /^\*\*([^*\n]+)\*\*$/.exec(segment);
+    if (bold) {
+      return <strong key={`b${segmentIndex}`}>{renderLinks(bold[1] ?? "", `b${segmentIndex}`)}</strong>;
+    }
+    return <span key={`t${segmentIndex}`}>{renderLinks(segment, `t${segmentIndex}`)}</span>;
+  });
+}
+
+function renderLinks(text: string, keyPrefix: string) {
   const parts = text.split(/(\/[a-z-]+|[\w.+-]+@[\w-]+(?:\.[\w-]+)+)/g);
   return parts.map((part, index) => {
+    const key = `${keyPrefix}-${index}`;
     const route = pageLinks[part as keyof typeof pageLinks];
     if (route) {
       return (
         <Link
-          key={index}
+          key={key}
           to={route}
           className="font-bold text-primary underline underline-offset-2"
         >
@@ -79,7 +93,7 @@ function renderMessageText(text: string) {
     if (/^[\w.+-]+@[\w-]+(?:\.[\w-]+)+$/.test(part)) {
       return (
         <a
-          key={index}
+          key={key}
           href={`mailto:${part}`}
           className="font-bold text-primary underline underline-offset-2"
         >
@@ -117,9 +131,7 @@ function HelpCenter() {
     bottomRef.current?.scrollIntoView({ block: "end" });
   }, [messages, isSending]);
 
-  const greeting = userName
-    ? `Hello, ${userName}! 👋 I'm Maya, your AI assistant. How can I help you with your account today?`
-    : "Hello there! 👋 I'm Maya, your AI assistant. Ask me about your dashboard, finances, rewards, learning resources or profile settings.";
+  const greeting = mayaGreeting(userName);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
