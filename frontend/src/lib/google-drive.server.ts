@@ -110,8 +110,8 @@ async function ensureTables() {
     size_bytes integer NOT NULL CHECK (size_bytes > 0),
     sha256 text NOT NULL,
     created_at timestamptz NOT NULL DEFAULT NOW(),
-    UNIQUE (user_id, sha256)
   )`;
+  await sql`ALTER TABLE deposit_documents ADD COLUMN IF NOT EXISTS payment_reference text`;
 }
 
 function configuredRedirectUri(): string {
@@ -438,6 +438,10 @@ export async function handleDocumentUpload(request: Request): Promise<Response> 
       }
       amount = parsed.toFixed(2);
     }
+    const reference = String(form.get("reference") ?? "").trim();
+    if (reference !== "" && !/^[A-Za-z0-9 _./-]{1,64}$/.test(reference)) {
+      throw new HttpError(400, "The payment reference may only contain letters, numbers and - _ . /");
+    }
     if (file.size === 0) throw new HttpError(400, "The file is empty.");
     if (file.size > MAX_DOCUMENT_BYTES) {
       throw new HttpError(413, "The file is too large. The maximum size is 4 MB.");
@@ -475,10 +479,11 @@ export async function handleDocumentUpload(request: Request): Promise<Response> 
       await sql`
         INSERT INTO deposit_documents (
           id, user_id, document_type, declared_amount, drive_file_id, stored_filename,
-          size_bytes, sha256
+          size_bytes, sha256, payment_reference
         ) VALUES (
           ${documentId}::uuid, ${userId}::uuid, ${documentType.data}, ${amount}::numeric,
-          ${driveFileId}, ${storedFilename}, ${bytes.length}, ${sha256}
+          ${driveFileId}, ${storedFilename}, ${bytes.length}, ${sha256},
+          ${reference === "" ? null : reference}
         )
       `;
     } catch (error) {
@@ -499,7 +504,7 @@ export async function listDepositDocumentsAdmin(data: z.infer<typeof adminTokenI
   await ensureTables();
   const rows = (await serverDatabase()`
     SELECT d.id::text AS id, u.full_name, u.email, d.document_type, d.declared_amount::text AS amount,
-           d.stored_filename, d.size_bytes, d.created_at::text AS created_at
+           d.stored_filename, d.size_bytes, d.payment_reference, d.created_at::text AS created_at
     FROM deposit_documents d JOIN users u ON u.id = d.user_id
     ORDER BY d.created_at DESC LIMIT 200
   `) as {
@@ -510,6 +515,7 @@ export async function listDepositDocumentsAdmin(data: z.infer<typeof adminTokenI
     amount: string | null;
     stored_filename: string;
     size_bytes: number;
+    payment_reference: string | null;
     created_at: string;
   }[];
   return rows.map((row) => ({
@@ -518,6 +524,7 @@ export async function listDepositDocumentsAdmin(data: z.infer<typeof adminTokenI
     email: row.email,
     documentType: row.document_type,
     amount: row.amount,
+    paymentReference: row.payment_reference,
     filename: row.stored_filename,
     sizeBytes: row.size_bytes,
     createdAt: row.created_at,

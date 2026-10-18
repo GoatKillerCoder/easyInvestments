@@ -10,6 +10,7 @@ import {
   Clock3,
   CreditCard,
   Eye,
+  FileUp,
   Landmark,
   LayoutDashboard,
   LoaderCircle,
@@ -35,6 +36,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { BankDetailsDialog } from "@/components/bank-details-dialog";
+import { ProofOfPaymentDialog } from "@/components/proof-of-payment-dialog";
 import {
   calculatePortfolioValue,
   createWithdrawalRequest,
@@ -101,6 +103,7 @@ function Finances() {
   const [filter, setFilter] = useState<TransactionFilter>("All");
   const [action, setAction] = useState<FinanceAction | null>(null);
   const [bankDetailsOpen, setBankDetailsOpen] = useState(false);
+  const [proofDialogOpen, setProofDialogOpen] = useState(false);
   const [amount, setAmount] = useState("");
   const [actionNotice, setActionNotice] = useState("");
   const [pageNotice, setPageNotice] = useState("");
@@ -459,6 +462,14 @@ function Finances() {
             >
               <ArrowUpFromLine aria-hidden="true" />
               Withdrawal
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => setProofDialogOpen(true)}
+              className="h-11 rounded-lg px-5 font-bold"
+            >
+              <FileUp aria-hidden="true" />
+              Upload Proof of Payment
             </Button>
           </div>
 
@@ -1075,6 +1086,7 @@ function Finances() {
         </DialogContent>
       </Dialog>
       <BankDetailsDialog open={bankDetailsOpen} onOpenChange={setBankDetailsOpen} />
+      <ProofOfPaymentDialog open={proofDialogOpen} onOpenChange={setProofDialogOpen} />
     </main>
   );
 }

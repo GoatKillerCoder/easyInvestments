@@ -1,7 +1,6 @@
 import { Check, Clock3, Copy, Landmark } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { DocumentUploadForm } from "@/components/document-upload-form";
 import {
   Dialog,
   DialogContent,
@@ -152,7 +151,10 @@ export function BankDetailsDialog({
           </p>
         </div>
 
-        <DocumentUploadForm />
+        <p className="text-sm text-muted-foreground">
+          After paying, use <span className="font-semibold">Upload Proof of Payment</span> on the
+          Finances page to send us your proof of payment.
+        </p>
 
         <DialogFooter className="gap-2">
           <Button

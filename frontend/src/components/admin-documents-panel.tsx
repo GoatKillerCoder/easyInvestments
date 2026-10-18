@@ -121,7 +121,7 @@ export function AdminDocumentsPanel({ adminToken }: { adminToken: string }) {
                 <p className="break-all text-xs text-muted-foreground">
                   {document.email} · {document.createdAt.slice(0, 16)} ·{" "}
                   {document.amount ? `Declared ${formatRand(Number(document.amount))}` : "No amount declared"}{" "}
-                  · Pending verification
+                  · {document.paymentReference ? `Ref: ${document.paymentReference} · ` : ""}Pending verification
                 </p>
               </div>
               <button
