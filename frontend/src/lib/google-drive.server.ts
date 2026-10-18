@@ -7,8 +7,8 @@ import {
   verifyUserSessionToken,
 } from "@/lib/user-session.server";
 
-// The designated folder already exists, so the narrower drive.file scope cannot write to it.
-const DRIVE_SCOPE = "https://www.googleapis.com/auth/drive";
+// drive.file only exposes files and folders this app created (or the user opened with it).
+const DRIVE_SCOPE = "https://www.googleapis.com/auth/drive.file";
 const OAUTH_COOKIE = "gd_oauth_nonce";
 const OAUTH_STATE_TTL_MS = 10 * 60 * 1000;
 export const MAX_DOCUMENT_BYTES = 4 * 1024 * 1024;
@@ -99,6 +99,7 @@ async function ensureTables() {
     account_email text,
     connected_at timestamptz NOT NULL DEFAULT NOW()
   )`;
+  await sql`ALTER TABLE google_drive_connection ADD COLUMN IF NOT EXISTS folder_id text`;
   await sql`CREATE TABLE IF NOT EXISTS deposit_documents (
     id uuid PRIMARY KEY,
     user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -196,20 +197,47 @@ async function requestToken(params: Record<string, string>): Promise<GoogleToken
   return (await response.json()) as GoogleTokenResponse;
 }
 
-async function assertFolderWritable(accessToken: string) {
+async function configuredFolderUsable(accessToken: string): Promise<boolean> {
   const folderId = serverEnvironmentValue("GOOGLE_DRIVE_FOLDER_ID");
   const response = await fetch(
     `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(folderId)}?fields=id,mimeType,capabilities(canAddChildren)&supportsAllDrives=true`,
     { headers: { Authorization: `Bearer ${accessToken}` } },
   );
-  if (!response.ok) throw new Error(`Drive folder lookup failed with status ${response.status}.`);
+  // Under drive.file a folder the app did not create is normally reported as not found.
+  if (!response.ok) return false;
   const folder = (await response.json()) as {
     mimeType?: string;
     capabilities?: { canAddChildren?: boolean };
   };
-  if (folder.mimeType !== "application/vnd.google-apps.folder" || !folder.capabilities?.canAddChildren) {
-    throw new Error("The authorized Google account cannot add files to the configured folder.");
+  return (
+    folder.mimeType === "application/vnd.google-apps.folder" &&
+    folder.capabilities?.canAddChildren === true
+  );
+}
+
+async function createAppFolder(accessToken: string): Promise<string> {
+  const response = await fetch("https://www.googleapis.com/drive/v3/files?fields=id&supportsAllDrives=true", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      name: "Easy Investments - Deposit Documents",
+      mimeType: "application/vnd.google-apps.folder",
+    }),
+  });
+  if (!response.ok) throw new Error(`Drive folder creation failed with status ${response.status}.`);
+  const folder = (await response.json()) as { id?: string };
+  if (!folder.id) throw new Error("Drive did not return a folder id.");
+  return folder.id;
+}
+
+async function resolveUploadFolder(accessToken: string): Promise<{ id: string; isConfigured: boolean }> {
+  if (await configuredFolderUsable(accessToken)) {
+    return { id: serverEnvironmentValue("GOOGLE_DRIVE_FOLDER_ID"), isConfigured: true };
   }
+  return { id: await createAppFolder(accessToken), isConfigured: false };
 }
 
 export async function handleGoogleCallback(request: Request): Promise<Response> {
@@ -241,7 +269,7 @@ export async function handleGoogleCallback(request: Request): Promise<Response> 
     if (!tokens.scope?.split(" ").includes(DRIVE_SCOPE)) {
       throw new Error("The required Google Drive permission was not granted.");
     }
-    await assertFolderWritable(tokens.access_token);
+    const folder = await resolveUploadFolder(tokens.access_token);
 
     const about = await fetch("https://www.googleapis.com/drive/v3/about?fields=user(emailAddress)", {
       headers: { Authorization: `Bearer ${tokens.access_token}` },
@@ -252,14 +280,17 @@ export async function handleGoogleCallback(request: Request): Promise<Response> 
 
     await ensureTables();
     await serverDatabase()`
-      INSERT INTO google_drive_connection (id, refresh_token_ciphertext, account_email, connected_at)
-      VALUES (1, ${await encryptToken(tokens.refresh_token)}, ${accountEmail}, NOW())
+      INSERT INTO google_drive_connection (
+        id, refresh_token_ciphertext, account_email, folder_id, connected_at
+      )
+      VALUES (1, ${await encryptToken(tokens.refresh_token)}, ${accountEmail}, ${folder.id}, NOW())
       ON CONFLICT (id) DO UPDATE
       SET refresh_token_ciphertext = EXCLUDED.refresh_token_ciphertext,
           account_email = EXCLUDED.account_email,
+          folder_id = EXCLUDED.folder_id,
           connected_at = NOW()
     `;
-    return redirectTo("connected");
+    return redirectTo(folder.isConfigured ? "connected" : "connected-new-folder");
   } catch (error) {
     console.error("Google Drive authorization failed.", error);
     return redirectTo("error");
@@ -324,11 +355,16 @@ async function uploadToDrive(
   appProperties: Record<string, string>,
 ): Promise<string> {
   const accessToken = await getDriveAccessToken();
+  const folderRows = (await serverDatabase()`
+    SELECT folder_id FROM google_drive_connection WHERE id = 1
+  `) as { folder_id: string | null }[];
+  const folderId = folderRows[0]?.folder_id;
+  if (!folderId) throw new HttpError(503, "Document uploads need Google Drive to be reconnected.");
   const boundary = `ei_${toHex(crypto.getRandomValues(new Uint8Array(12)))}`;
   const metadata = JSON.stringify({
     name: filename,
     mimeType: "application/pdf",
-    parents: [serverEnvironmentValue("GOOGLE_DRIVE_FOLDER_ID")],
+    parents: [folderId],
     appProperties,
   });
   const head = encoder.encode(

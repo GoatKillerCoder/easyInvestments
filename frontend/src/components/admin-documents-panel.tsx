@@ -39,6 +39,11 @@ export function AdminDocumentsPanel({ adminToken }: { adminToken: string }) {
   useEffect(() => {
     const result = new URLSearchParams(window.location.search).get("google");
     if (result === "connected") setMessage("Google Drive was connected successfully.");
+    else if (result === "connected-new-folder") {
+      setMessage(
+        "Google Drive was connected. The configured folder is not accessible with the drive.file permission, so a new private folder, \"Easy Investments - Deposit Documents\", was created in the connected account.",
+      );
+    }
     else if (result === "denied") setMessage("Google Drive access was not granted.");
     else if (result === "error") {
       setMessage("Google Drive could not be connected. Check the configuration and try again.");
