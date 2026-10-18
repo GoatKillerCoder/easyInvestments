@@ -26,6 +26,9 @@ import { Route as VpsServiceRouteImport } from './routes/vps-service'
 import { Route as AdminCommunicationsRouteImport } from './routes/admin.communications'
 import { Route as CommunicationIdRouteImport } from './routes/communication.$id'
 import { Route as AdminCommunicationsIdRouteImport } from './routes/admin.communications.$id'
+import { Route as ApiDocumentsDownloadRouteImport } from './routes/api/documents/download'
+import { Route as ApiDocumentsUploadRouteImport } from './routes/api/documents/upload'
+import { Route as ApiGoogleCallbackRouteImport } from './routes/api/google/callback'
 import { Route as ApiYocoWebhookRouteImport } from './routes/api/yoco/webhook'
 
 const IndexRoute = IndexRouteImport.update({
@@ -113,6 +116,21 @@ const AdminCommunicationsIdRoute = AdminCommunicationsIdRouteImport.update({
   path: '/$id',
   getParentRoute: () => AdminCommunicationsRoute,
 } as any)
+const ApiDocumentsDownloadRoute = ApiDocumentsDownloadRouteImport.update({
+  id: '/api/documents/download',
+  path: '/api/documents/download',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiDocumentsUploadRoute = ApiDocumentsUploadRouteImport.update({
+  id: '/api/documents/upload',
+  path: '/api/documents/upload',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiGoogleCallbackRoute = ApiGoogleCallbackRouteImport.update({
+  id: '/api/google/callback',
+  path: '/api/google/callback',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiYocoWebhookRoute = ApiYocoWebhookRouteImport.update({
   id: '/api/yoco/webhook',
   path: '/api/yoco/webhook',
@@ -137,6 +155,9 @@ export interface FileRoutesByFullPath {
   '/admin/communications': typeof AdminCommunicationsRouteWithChildren
   '/communication/$id': typeof CommunicationIdRoute
   '/admin/communications/$id': typeof AdminCommunicationsIdRoute
+  '/api/documents/download': typeof ApiDocumentsDownloadRoute
+  '/api/documents/upload': typeof ApiDocumentsUploadRoute
+  '/api/google/callback': typeof ApiGoogleCallbackRoute
   '/api/yoco/webhook': typeof ApiYocoWebhookRoute
 }
 export interface FileRoutesByTo {
@@ -157,6 +178,9 @@ export interface FileRoutesByTo {
   '/admin/communications': typeof AdminCommunicationsRouteWithChildren
   '/communication/$id': typeof CommunicationIdRoute
   '/admin/communications/$id': typeof AdminCommunicationsIdRoute
+  '/api/documents/download': typeof ApiDocumentsDownloadRoute
+  '/api/documents/upload': typeof ApiDocumentsUploadRoute
+  '/api/google/callback': typeof ApiGoogleCallbackRoute
   '/api/yoco/webhook': typeof ApiYocoWebhookRoute
 }
 export interface FileRoutesById {
@@ -178,6 +202,9 @@ export interface FileRoutesById {
   '/admin/communications': typeof AdminCommunicationsRouteWithChildren
   '/communication/$id': typeof CommunicationIdRoute
   '/admin/communications/$id': typeof AdminCommunicationsIdRoute
+  '/api/documents/download': typeof ApiDocumentsDownloadRoute
+  '/api/documents/upload': typeof ApiDocumentsUploadRoute
+  '/api/google/callback': typeof ApiGoogleCallbackRoute
   '/api/yoco/webhook': typeof ApiYocoWebhookRoute
 }
 export interface FileRouteTypes {
@@ -200,6 +227,9 @@ export interface FileRouteTypes {
     | '/admin/communications'
     | '/communication/$id'
     | '/admin/communications/$id'
+    | '/api/documents/download'
+    | '/api/documents/upload'
+    | '/api/google/callback'
     | '/api/yoco/webhook'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -220,6 +250,9 @@ export interface FileRouteTypes {
     | '/admin/communications'
     | '/communication/$id'
     | '/admin/communications/$id'
+    | '/api/documents/download'
+    | '/api/documents/upload'
+    | '/api/google/callback'
     | '/api/yoco/webhook'
   id:
     | '__root__'
@@ -240,6 +273,9 @@ export interface FileRouteTypes {
     | '/admin/communications'
     | '/communication/$id'
     | '/admin/communications/$id'
+    | '/api/documents/download'
+    | '/api/documents/upload'
+    | '/api/google/callback'
     | '/api/yoco/webhook'
   fileRoutesById: FileRoutesById
 }
@@ -258,6 +294,9 @@ export interface RootRouteChildren {
   RewardsHubRoute: typeof RewardsHubRoute
   StocksCalendarRoute: typeof StocksCalendarRoute
   VpsServiceRoute: typeof VpsServiceRoute
+  ApiDocumentsDownloadRoute: typeof ApiDocumentsDownloadRoute
+  ApiDocumentsUploadRoute: typeof ApiDocumentsUploadRoute
+  ApiGoogleCallbackRoute: typeof ApiGoogleCallbackRoute
   ApiYocoWebhookRoute: typeof ApiYocoWebhookRoute
 }
 
@@ -382,6 +421,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminCommunicationsIdRouteImport
       parentRoute: typeof AdminCommunicationsRoute
     }
+    '/api/documents/download': {
+      id: '/api/documents/download'
+      path: '/api/documents/download'
+      fullPath: '/api/documents/download'
+      preLoaderRoute: typeof ApiDocumentsDownloadRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/documents/upload': {
+      id: '/api/documents/upload'
+      path: '/api/documents/upload'
+      fullPath: '/api/documents/upload'
+      preLoaderRoute: typeof ApiDocumentsUploadRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/google/callback': {
+      id: '/api/google/callback'
+      path: '/api/google/callback'
+      fullPath: '/api/google/callback'
+      preLoaderRoute: typeof ApiGoogleCallbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/yoco/webhook': {
       id: '/api/yoco/webhook'
       path: '/api/yoco/webhook'
@@ -440,6 +500,9 @@ const rootRouteChildren: RootRouteChildren = {
   RewardsHubRoute: RewardsHubRoute,
   StocksCalendarRoute: StocksCalendarRoute,
   VpsServiceRoute: VpsServiceRoute,
+  ApiDocumentsDownloadRoute: ApiDocumentsDownloadRoute,
+  ApiDocumentsUploadRoute: ApiDocumentsUploadRoute,
+  ApiGoogleCallbackRoute: ApiGoogleCallbackRoute,
   ApiYocoWebhookRoute: ApiYocoWebhookRoute,
 }
 export const routeTree = rootRouteImport

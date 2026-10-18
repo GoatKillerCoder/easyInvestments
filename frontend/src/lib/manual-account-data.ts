@@ -10,6 +10,7 @@ import {
   registerManualAccountServerFn,
   updateAdminManualAccountStatusServerFn,
   updateAdminManualAccountServerFn,
+  updateManualAccountContactServerFn,
 } from "@/lib/manual-account-server";
 import { createYocoDepositServerFn } from "@/lib/yoco-server";
 import {
@@ -206,6 +207,17 @@ export function authenticateManualAccount(email: string, password: string, compa
 
 export function deactivateManualAccount(id: string, password: string) {
   return deactivateManualAccountServerFn({ data: { id, password } });
+}
+
+export function updateManualAccountContact(
+  id: string,
+  sessionToken: string,
+  currentPassword: string,
+  details: { email: string; phone: string; country: string; address: string },
+) {
+  return updateManualAccountContactServerFn({
+    data: { id, sessionToken, currentPassword, ...details },
+  });
 }
 
 export function changeManualAccountPassword(

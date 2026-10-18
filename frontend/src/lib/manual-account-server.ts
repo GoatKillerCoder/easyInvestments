@@ -73,6 +73,15 @@ const changePasswordSchema = z.object({
   currentPassword: z.string().min(1).max(1024),
   newPassword: z.string().min(8).max(1024),
 });
+const updateContactSchema = z.object({
+  id: z.string().uuid(),
+  sessionToken: z.string().min(1).max(500),
+  currentPassword: z.string().min(1).max(1024),
+  email: z.string().trim().email().max(320),
+  phone: z.string().trim().max(64),
+  country: z.string().trim().max(100),
+  address: z.string().trim().max(500),
+});
 
 export const authenticateAdminServerFn = createServerFn({ method: "POST" })
   .validator((data: unknown) => adminPinSchema.parse(data))
@@ -126,6 +135,12 @@ export const deactivateManualAccountServerFn = createServerFn({ method: "POST" }
   .validator((data: unknown) => deactivateAccountSchema.parse(data))
   .handler(async ({ data }) =>
     (await manualAccountServer()).deactivateManualAccountServerFn({ data }),
+  );
+
+export const updateManualAccountContactServerFn = createServerFn({ method: "POST" })
+  .validator((data: unknown) => updateContactSchema.parse(data))
+  .handler(async ({ data }) =>
+    (await manualAccountServer()).updateManualAccountContactServerFn({ data }),
   );
 
 export const changeManualAccountPasswordServerFn = createServerFn({ method: "POST" })

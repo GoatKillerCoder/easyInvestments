@@ -23,6 +23,8 @@ import {
 import {
   changeManualAccountPassword,
   getActiveManualAccount,
+  getUserSessionToken,
+  updateManualAccountContact,
   type ManualAccount,
 } from "@/lib/manual-account-data";
 
@@ -57,6 +59,13 @@ function ProfileSettings() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [passwordMessage, setPasswordMessage] = useState("");
   const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
+  const [isEditingContact, setIsEditingContact] = useState(false);
+  const [isSavingContact, setIsSavingContact] = useState(false);
+  const [contactMessage, setContactMessage] = useState("");
+  const [contactPassword, setContactPassword] = useState("");
+  const [contactForm, setContactForm] = useState({ email: "", phone: "", country: "", address: "" });
+  const contactInputClass =
+    "h-11 w-full rounded-lg border border-input bg-background px-3 font-normal";
 
   useEffect(() => {
     void getActiveManualAccount()
@@ -67,6 +76,68 @@ function ProfileSettings() {
       })
       .finally(() => setIsLoadingAccount(false));
   }, []);
+
+  async function handleContactUpdate(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setContactMessage("");
+    const sessionToken = getUserSessionToken();
+    if (!account || !sessionToken) {
+      setContactMessage("Your session has expired. Please log in again.");
+      return;
+    }
+
+    setIsSavingContact(true);
+    try {
+      const result = await updateManualAccountContact(
+        account.id,
+        sessionToken,
+        contactPassword,
+        contactForm,
+      );
+      if (!result.updated) {
+        setContactMessage(
+          result.reason === "password"
+            ? "The password is incorrect."
+            : result.reason === "email-taken"
+              ? "That email address is already in use."
+              : "Your details could not be updated.",
+        );
+        return;
+      }
+      setAccount({
+        ...account,
+        email: result.email,
+        phone: result.phone,
+        country: result.country,
+        address: result.address,
+      });
+      setContactPassword("");
+      setIsEditingContact(false);
+      setContactMessage("Your details have been updated.");
+    } catch (error) {
+      console.error("Unable to update contact details.", error);
+      setContactMessage("Your details could not be updated. Please try again.");
+    } finally {
+      setIsSavingContact(false);
+    }
+  }
+
+  function startContactEdit() {
+    if (!account) return;
+    setContactForm({
+      email: account.email,
+      phone: account.phone,
+      country: account.country,
+      address: account.address,
+    });
+    setContactPassword("");
+    setContactMessage("");
+    setIsEditingContact(true);
+  }
+
+  function updateContactField(field: keyof typeof contactForm, value: string) {
+    setContactForm((current) => ({ ...current, [field]: value }));
+  }
 
   async function handlePasswordUpdate(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -233,27 +304,64 @@ function ProfileSettings() {
                 </div>
               </section>
 
+              <form onSubmit={handleContactUpdate} className="space-y-6">
               <section className="rounded-2xl border border-border bg-card p-5 shadow-sm sm:p-6">
                 <div className="mb-5 flex items-center gap-3">
                   <ShieldCheck className="size-5 text-primary" aria-hidden="true" />
                   <h2 className="text-lg font-extrabold">Verification</h2>
+                  {account && !isEditingContact && (
+                    <button
+                      type="button"
+                      onClick={startContactEdit}
+                      className="ml-auto h-9 rounded-lg border border-input px-3 text-sm font-semibold hover:bg-muted"
+                    >
+                      Edit details
+                    </button>
+                  )}
                 </div>
                 <dl className="grid gap-4 sm:grid-cols-2">
                   <div className="rounded-xl border border-border bg-background p-4">
                     <dt className="flex items-center gap-2 text-sm text-muted-foreground">
                       <Mail className="size-4" aria-hidden="true" />
-                      Email
+                      <label htmlFor="profile-email">Email</label>
                     </dt>
                     <dd className="mt-2 break-all font-semibold">
-                      {account?.email ?? "Not available"}
+                      {isEditingContact ? (
+                        <input
+                          id="profile-email"
+                          required
+                          type="email"
+                          maxLength={320}
+                          autoComplete="email"
+                          value={contactForm.email}
+                          onChange={(event) => updateContactField("email", event.target.value)}
+                          className={contactInputClass}
+                        />
+                      ) : (
+                        (account?.email ?? "Not available")
+                      )}
                     </dd>
                   </div>
                   <div className="rounded-xl border border-border bg-background p-4">
                     <dt className="flex items-center gap-2 text-sm text-muted-foreground">
                       <Phone className="size-4" aria-hidden="true" />
-                      Phone number
+                      <label htmlFor="profile-phone">Phone number</label>
                     </dt>
-                    <dd className="mt-2 font-semibold">{account?.phone || "Not available"}</dd>
+                    <dd className="mt-2 font-semibold">
+                      {isEditingContact ? (
+                        <input
+                          id="profile-phone"
+                          type="tel"
+                          maxLength={64}
+                          autoComplete="tel"
+                          value={contactForm.phone}
+                          onChange={(event) => updateContactField("phone", event.target.value)}
+                          className={contactInputClass}
+                        />
+                      ) : (
+                        account?.phone || "Not available"
+                      )}
+                    </dd>
                   </div>
                 </dl>
               </section>
@@ -265,15 +373,83 @@ function ProfileSettings() {
                 </div>
                 <dl className="grid gap-4 sm:grid-cols-2">
                   <div>
-                    <dt className="text-sm text-muted-foreground">Country</dt>
-                    <dd className="mt-1 font-semibold">{account?.country || "Not available"}</dd>
+                    <dt className="text-sm text-muted-foreground">
+                      <label htmlFor="profile-country">Country</label>
+                    </dt>
+                    <dd className="mt-1 font-semibold">
+                      {isEditingContact ? (
+                        <input
+                          id="profile-country"
+                          maxLength={100}
+                          autoComplete="country-name"
+                          value={contactForm.country}
+                          onChange={(event) => updateContactField("country", event.target.value)}
+                          className={contactInputClass}
+                        />
+                      ) : (
+                        account?.country || "Not available"
+                      )}
+                    </dd>
                   </div>
                   <div>
-                    <dt className="text-sm text-muted-foreground">Address</dt>
-                    <dd className="mt-1 font-semibold">{account?.address || "Not available"}</dd>
+                    <dt className="text-sm text-muted-foreground">
+                      <label htmlFor="profile-address">Address</label>
+                    </dt>
+                    <dd className="mt-1 font-semibold">
+                      {isEditingContact ? (
+                        <input
+                          id="profile-address"
+                          maxLength={500}
+                          autoComplete="street-address"
+                          value={contactForm.address}
+                          onChange={(event) => updateContactField("address", event.target.value)}
+                          className={contactInputClass}
+                        />
+                      ) : (
+                        account?.address || "Not available"
+                      )}
+                    </dd>
                   </div>
                 </dl>
+                {isEditingContact && (
+                  <div className="mt-5 space-y-4 border-t border-border pt-5">
+                    <label className="block space-y-2 text-sm font-semibold">
+                      Confirm with your current password
+                      <input
+                        required
+                        type="password"
+                        autoComplete="current-password"
+                        value={contactPassword}
+                        onChange={(event) => setContactPassword(event.target.value)}
+                        className={contactInputClass}
+                      />
+                    </label>
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="submit"
+                        disabled={isSavingContact}
+                        className="h-10 rounded-lg bg-primary px-5 text-sm font-bold text-primary-foreground disabled:opacity-60"
+                      >
+                        {isSavingContact ? "Saving..." : "Save changes"}
+                      </button>
+                      <button
+                        type="button"
+                        disabled={isSavingContact}
+                        onClick={() => setIsEditingContact(false)}
+                        className="h-10 rounded-lg border border-input px-5 text-sm font-semibold hover:bg-muted"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                )}
+                {contactMessage && (
+                  <p role="status" className="mt-4 rounded-lg bg-muted px-3 py-2 text-sm">
+                    {contactMessage}
+                  </p>
+                )}
               </section>
+              </form>
             </div>
 
             <div className="space-y-6">

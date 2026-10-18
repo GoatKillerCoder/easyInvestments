@@ -8,7 +8,9 @@ import {
   CheckCircle2,
   CircleHelp,
   Clock3,
+  CreditCard,
   Eye,
+  Landmark,
   LayoutDashboard,
   LoaderCircle,
   LogOut,
@@ -32,6 +34,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { BankDetailsDialog } from "@/components/bank-details-dialog";
 import {
   calculatePortfolioValue,
   createWithdrawalRequest,
@@ -97,6 +100,7 @@ const filters: TransactionFilter[] = ["All", "Deposit", "Withdrawal"];
 function Finances() {
   const [filter, setFilter] = useState<TransactionFilter>("All");
   const [action, setAction] = useState<FinanceAction | null>(null);
+  const [bankDetailsOpen, setBankDetailsOpen] = useState(false);
   const [amount, setAmount] = useState("");
   const [actionNotice, setActionNotice] = useState("");
   const [pageNotice, setPageNotice] = useState("");
@@ -646,7 +650,7 @@ function Finances() {
         >
           <DialogHeader>
             <DialogTitle>
-              {action === "Withdrawal" ? "Withdraw funds" : "Deposit funds"}
+              {action === "Withdrawal" ? "Withdraw funds" : "Deposit Funds"}
             </DialogTitle>
             <DialogDescription>
               {action === "Withdrawal"
@@ -655,7 +659,7 @@ function Finances() {
                   : withdrawalStep === "success"
                     ? "Your request has been recorded for manual review."
                     : "Select your withdrawal method and enter the amount you want to withdraw."
-                : "Choose an amount to pay securely through Yoco."}
+                : "Choose your preferred deposit method to add funds to your investment account."}
             </DialogDescription>
           </DialogHeader>
           {action === "Withdrawal" ? (
@@ -1006,7 +1010,7 @@ function Finances() {
             <form onSubmit={handleActionSubmit} className="space-y-5">
               <div>
                 <label htmlFor="finance-amount" className="mb-2 block text-sm font-semibold">
-                  Amount
+                  Deposit Amount (ZAR)
                 </label>
                 <div className="flex h-11 items-center rounded-lg border border-input bg-background px-3 focus-within:ring-2 focus-within:ring-ring">
                   <span className="mr-2 text-sm text-muted-foreground">R</span>
@@ -1028,19 +1032,49 @@ function Finances() {
                   {actionNotice}
                 </p>
               )}
-              <DialogFooter>
-                <Button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="h-10 rounded-lg px-5 font-bold"
-                >
-                  {isSubmitting ? "Starting checkout..." : "Continue to payment"}
-                </Button>
-              </DialogFooter>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <section className="flex flex-col rounded-xl border p-4">
+                  <CreditCard className="size-5 text-primary" aria-hidden="true" />
+                  <h3 className="mt-3 text-sm font-bold">Yoco Online Payment</h3>
+                  <p className="mt-1 flex-1 text-sm text-muted-foreground">
+                    Make a secure online payment through Yoco using the payment methods supported at
+                    checkout.
+                  </p>
+                  <Button
+                    type="submit"
+                    disabled={isSubmitting}
+                    className="mt-4 h-10 w-full rounded-lg font-bold"
+                  >
+                    {isSubmitting ? "Starting checkout..." : "Continue with Yoco"}
+                  </Button>
+                </section>
+                <section className="flex flex-col rounded-xl border p-4">
+                  <Landmark className="size-5 text-primary" aria-hidden="true" />
+                  <h3 className="mt-3 text-sm font-bold">Manual EFT Bank Transfer</h3>
+                  <p className="mt-1 flex-1 text-sm text-muted-foreground">
+                    Transfer funds directly from your bank account to our designated bank account
+                    using your banking app.
+                  </p>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={isSubmitting}
+                    onClick={() => setBankDetailsOpen(true)}
+                    className="mt-4 h-10 w-full rounded-lg font-bold"
+                  >
+                    View Bank Details
+                  </Button>
+                </section>
+              </div>
+              <p className="rounded-lg bg-muted px-3 py-2 text-xs text-muted-foreground">
+                Manual EFT deposits are credited to your investment account only after the funds
+                have been received and successfully verified.
+              </p>
             </form>
           )}
         </DialogContent>
       </Dialog>
+      <BankDetailsDialog open={bankDetailsOpen} onOpenChange={setBankDetailsOpen} />
     </main>
   );
 }

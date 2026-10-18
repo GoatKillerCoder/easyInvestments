@@ -18,6 +18,7 @@ import {
   X,
 } from "lucide-react";
 import { useEffect, useState, type FormEvent } from "react";
+import { AdminDocumentsPanel } from "@/components/admin-documents-panel";
 import { brokerPartners } from "@/lib/broker-partners";
 import {
   authenticateAdmin,
@@ -553,6 +554,8 @@ function AdminPage() {
             Client communications
           </Link>
         </header>
+
+        <AdminDocumentsPanel adminToken={adminToken} />
 
         <section className="mb-8 rounded-2xl border border-border bg-card p-5 shadow-sm sm:p-7">
           <div className="mb-5">

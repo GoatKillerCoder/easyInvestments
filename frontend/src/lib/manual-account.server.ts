@@ -149,6 +149,15 @@ const accountIdSchema = z.object({
   sessionToken: z.string().min(1).max(500),
 });
 const ADMIN_SESSION_DURATION_MS = 8 * 60 * 60 * 1000;
+const updateContactSchema = z.object({
+  id: z.string().uuid(),
+  sessionToken: z.string().min(1).max(500),
+  currentPassword: z.string().min(1).max(1024),
+  email: z.string().trim().email().max(320),
+  phone: z.string().trim().max(64),
+  country: z.string().trim().max(100),
+  address: z.string().trim().max(500),
+});
 
 function environmentValue(name: string): string {
   const request = getRequest() as CloudflareRequest;
@@ -725,4 +734,50 @@ export async function changeManualAccountPasswordServerFn({
       RETURNING id
     `;
   return { updated: updated.length > 0 };
+}
+
+export async function updateManualAccountContactServerFn({
+  data,
+}: {
+  data: z.infer<typeof updateContactSchema>;
+}): Promise<
+  | { updated: true; email: string; phone: string; country: string; address: string }
+  | { updated: false; reason: "password" | "email-taken" | "not-found" }
+> {
+  const userId = await verifyUserSessionToken(data.sessionToken);
+  if (!userId || userId !== data.id) {
+    throw new Error("A valid session for this account is required.");
+  }
+
+  const sql = database();
+  const rows = await sql`
+      SELECT password_salt, password_hash, status
+      FROM users
+      WHERE id = ${data.id}::uuid
+      LIMIT 1
+    `;
+  const account = rows[0] as
+    { password_salt: string; password_hash: string; status: string } | undefined;
+  if (!account || account.status !== "Active") return { updated: false, reason: "not-found" };
+
+  const submitted = await hashPassword(data.currentPassword, account.password_salt);
+  if (!constantTimeEqual(submitted.passwordHash, account.password_hash)) {
+    return { updated: false, reason: "password" };
+  }
+
+  const email = data.email.toLowerCase();
+  const duplicate = await sql`
+      SELECT 1 FROM users WHERE LOWER(email) = ${email} AND id <> ${data.id}::uuid LIMIT 1
+    `;
+  if (duplicate.length > 0) return { updated: false, reason: "email-taken" };
+
+  const updated = await sql`
+      UPDATE users
+      SET email = ${email}, phone = ${data.phone}, country = ${data.country},
+          address = ${data.address}
+      WHERE id = ${data.id}::uuid
+      RETURNING id
+    `;
+  if (updated.length === 0) return { updated: false, reason: "not-found" };
+  return { updated: true, email, phone: data.phone, country: data.country, address: data.address };
 }
