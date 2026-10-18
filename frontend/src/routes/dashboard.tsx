@@ -262,14 +262,13 @@ function Dashboard() {
                   >
                     Add funds
                   </Link>
-                  <button
-                    type="button"
-                    onClick={() => setNotice("Withdrawals are currently unavailable.")}
+                  <Link
+                    to="/finances"
                     className="inline-flex h-10 items-center gap-2 rounded-lg bg-primary px-3 text-sm font-bold text-primary-foreground transition hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                   >
                     <Plus className="size-4" aria-hidden="true" />
                     Withdraw funds
-                  </button>
+                  </Link>
                 </div>
               </div>
 

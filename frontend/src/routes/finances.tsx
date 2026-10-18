@@ -211,8 +211,6 @@ function Finances() {
       if (branchCode && !/^[\d -]{1,20}$/.test(branchCode.trim())) {
         errors.branchCode = "Enter a valid branch code.";
       }
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(paypalEmail.trim())) {
-      errors.paypalEmail = "Enter a valid PayPal email address.";
     }
     return errors;
   }
@@ -253,18 +251,15 @@ function Finances() {
 
     try {
       const shared = { amount: amount.trim(), idempotencyKey, sessionToken };
-      const request: WithdrawalRequestInput =
-        withdrawalMethod === "PayPal"
-          ? { ...shared, method: "PayPal", paypalEmail: paypalEmail.trim() }
-          : {
-              ...shared,
-              method: "Bank account",
-              accountHolderName: accountHolderName.trim(),
-              bankName: bankName.trim(),
-              accountNumber: accountNumber.trim(),
-              accountType,
-              branchCode: branchCode.trim(),
-            };
+      const request: WithdrawalRequestInput = {
+        ...shared,
+        method: "Bank account",
+        accountHolderName: accountHolderName.trim(),
+        bankName: bankName.trim(),
+        accountNumber: accountNumber.trim(),
+        accountType,
+        branchCode: branchCode.trim(),
+      };
       const result = await createWithdrawalRequest(request);
       if (result.status !== "Pending") {
         setActionNotice(
@@ -716,9 +711,7 @@ function Finances() {
                   <div className="flex justify-between gap-4 text-sm">
                     <span className="text-muted-foreground">Destination</span>
                     <span className="text-right font-semibold">
-                      {withdrawalMethod === "PayPal"
-                        ? `${paypalEmail.trim().slice(0, 1)}***@${paypalEmail.trim().split("@")[1]}`
-                        : `${bankName.trim()} •••• ${accountNumber.replace(/\D/g, "").slice(-4)}`}
+                      {`${bankName.trim()} •••• ${accountNumber.replace(/\D/g, "").slice(-4)}`}
                     </span>
                   </div>
                   {withdrawalMethod === "Bank account" && (
@@ -796,10 +789,9 @@ function Finances() {
                     className="h-11 w-full rounded-lg border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   >
                     <option value="Bank account">Bank account</option>
-                    <option value="PayPal">PayPal</option>
                   </select>
                   <p className="text-xs text-muted-foreground">
-                    Requests are reviewed manually; neither method initiates an automatic transfer.
+                    Requests are reviewed manually; no automatic transfer is initiated.
                   </p>
                 </div>
 
@@ -977,33 +969,7 @@ function Finances() {
                       )}
                     </div>
                   </div>
-                ) : (
-                  <div>
-                    <label
-                      htmlFor="withdrawal-paypal-email"
-                      className="mb-2 block text-sm font-semibold"
-                    >
-                      PayPal email address
-                    </label>
-                    <input
-                      id="withdrawal-paypal-email"
-                      type="email"
-                      value={paypalEmail}
-                      onChange={(event) => {
-                        setPaypalEmail(event.target.value);
-                        clearWithdrawalError("paypalEmail");
-                      }}
-                      autoComplete="email"
-                      aria-invalid={Boolean(withdrawalErrors.paypalEmail)}
-                      className="h-11 w-full rounded-lg border border-input bg-background px-3 text-sm"
-                    />
-                    {withdrawalErrors.paypalEmail && (
-                      <p className="mt-1 text-xs text-destructive">
-                        {withdrawalErrors.paypalEmail}
-                      </p>
-                    )}
-                  </div>
-                )}
+                ) : null}
 
                 <div className="rounded-lg bg-muted px-3 py-2 text-xs text-muted-foreground">
                   Your payout details are encrypted before storage and are only submitted for

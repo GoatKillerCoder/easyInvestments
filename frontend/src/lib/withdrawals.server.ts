@@ -37,11 +37,6 @@ export const createWithdrawalInputSchema = z.discriminatedUnion("method", [
       .max(20)
       .regex(/^[\d -]*$/),
   }),
-  z.object({
-    ...baseWithdrawalFields,
-    method: z.literal("PayPal"),
-    paypalEmail: z.string().trim().email().max(320),
-  }),
 ]);
 
 type WithdrawalRow = {
@@ -130,13 +125,7 @@ async function decryptDestination(
   return withdrawalDestinationSchema.parse(JSON.parse(new TextDecoder().decode(plaintext)));
 }
 
-function maskEmail(email: string): string {
-  const [local = "", domain = ""] = email.split("@");
-  return `${local.slice(0, 1)}***@${domain}`;
-}
-
 function safeDestinationSummary(data: z.infer<typeof createWithdrawalInputSchema>): string {
-  if (data.method === "PayPal") return maskEmail(data.paypalEmail);
   return `${data.bankName} account ending ${data.accountNumber.replace(/\D/g, "").slice(-4)}`;
 }
 
@@ -182,16 +171,13 @@ export async function createWithdrawalRequest(data: z.infer<typeof createWithdra
   const existing = await findRequest(userId, data.idempotencyKey);
   if (existing) return publicRequest(existing);
 
-  const destination =
-    data.method === "PayPal"
-      ? { paypalEmail: data.paypalEmail.trim() }
-      : {
-          accountHolderName: data.accountHolderName.trim(),
-          bankName: data.bankName.trim(),
-          accountNumber: data.accountNumber.replace(/[\s-]/g, ""),
-          accountType: data.accountType,
-          branchCode: data.branchCode.replace(/[\s-]/g, ""),
-        };
+  const destination = {
+    accountHolderName: data.accountHolderName.trim(),
+    bankName: data.bankName.trim(),
+    accountNumber: data.accountNumber.replace(/[\s-]/g, ""),
+    accountType: data.accountType,
+    branchCode: data.branchCode.replace(/[\s-]/g, ""),
+  };
   const destinationCiphertext = await encryptDestination(JSON.stringify(destination));
   const destinationSummary = safeDestinationSummary(data);
   const requestId = crypto.randomUUID();
