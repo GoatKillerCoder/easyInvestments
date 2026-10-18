@@ -44,6 +44,7 @@ export const Route = createFileRoute("/profile-settings")({
 const menuItems = [
   "Dashboard",
   "Finances",
+  "Communication",
   "Rewards Hub",
   "Analytics & Education",
   "Help Center",
@@ -216,6 +217,7 @@ function ProfileSettings() {
                 {menuItems.map((item) =>
                   item === "Dashboard" ||
                   item === "Finances" ||
+                  item === "Communication" ||
                   item === "Rewards Hub" ||
                   item === "Analytics & Education" ||
                   item === "Help Center" ||
@@ -225,6 +227,8 @@ function ProfileSettings() {
                         to={
                           item === "Dashboard"
                             ? "/dashboard"
+                            : item === "Communication"
+                              ? "/communication"
                             : item === "Finances"
                               ? "/finances"
                               : item === "Rewards Hub"

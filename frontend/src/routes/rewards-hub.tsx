@@ -20,6 +20,7 @@ export const Route = createFileRoute("/rewards-hub")({
 const menuItems = [
   "Dashboard",
   "Finances",
+  "Communication",
   "Rewards Hub",
   "Analytics & Education",
   "Help Center",
@@ -57,6 +58,7 @@ function RewardsHub() {
                 {menuItems.map((item) =>
                   item === "Dashboard" ||
                   item === "Finances" ||
+                  item === "Communication" ||
                   item === "Rewards Hub" ||
                   item === "Analytics & Education" ||
                   item === "Help Center" ||
@@ -66,6 +68,8 @@ function RewardsHub() {
                         to={
                           item === "Dashboard"
                             ? "/dashboard"
+                            : item === "Communication"
+                              ? "/communication"
                             : item === "Finances"
                               ? "/finances"
                               : item === "Rewards Hub"

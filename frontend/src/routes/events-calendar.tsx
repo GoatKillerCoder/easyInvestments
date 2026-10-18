@@ -114,6 +114,7 @@ const events: CalendarEvent[] = [
 const menuItems = [
   "Dashboard",
   "Finances",
+  "Communication",
   "Rewards Hub",
   "Analytics & Education",
   "Help Center",
@@ -220,6 +221,7 @@ function EventsCalendar() {
                 {menuItems.map((item) =>
                   item === "Dashboard" ||
                   item === "Finances" ||
+                  item === "Communication" ||
                   item === "Rewards Hub" ||
                   item === "Analytics & Education" ||
                   item === "Help Center" ||
@@ -229,6 +231,8 @@ function EventsCalendar() {
                         to={
                           item === "Dashboard"
                             ? "/dashboard"
+                            : item === "Communication"
+                              ? "/communication"
                             : item === "Finances"
                               ? "/finances"
                               : item === "Rewards Hub"
