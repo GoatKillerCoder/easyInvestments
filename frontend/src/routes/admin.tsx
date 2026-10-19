@@ -17,8 +17,9 @@ import {
   UserPlus,
   X,
 } from "lucide-react";
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { AdminDocumentsPanel } from "@/components/admin-documents-panel";
+import { UnreadBadge, UnreadMessagesBanner, useUnreadCount } from "@/components/unread-messages";
 import { countAdminUnreadConversations } from "@/lib/communication-data";
 import { brokerPartners } from "@/lib/broker-partners";
 import {
@@ -128,8 +129,6 @@ function AdminPage() {
   const [adminPin, setAdminPin] = useState("");
   const [adminToken, setAdminToken] = useState("");
   const [isCheckingAccess, setIsCheckingAccess] = useState(true);
-  const [unreadCount, setUnreadCount] = useState(0);
-  const [showUnreadAlert, setShowUnreadAlert] = useState(false);
   const [isSigningIn, setIsSigningIn] = useState(false);
   const [isRefreshingAccounts, setIsRefreshingAccounts] = useState(false);
   const [updatingWithdrawalReference, setUpdatingWithdrawalReference] = useState("");
@@ -178,15 +177,14 @@ function AdminPage() {
       .finally(() => setIsCheckingAccess(false));
   }, []);
 
-  useEffect(() => {
-    if (!adminToken) return;
-    void countAdminUnreadConversations(adminToken)
-      .then(({ count }) => {
-        setUnreadCount(count);
-        if (count > 0) setShowUnreadAlert(true);
-      })
-      .catch((error: unknown) => console.error("Unable to check unread messages.", error));
-  }, [adminToken]);
+  const fetchUnread = useMemo(
+    () =>
+      adminToken
+        ? () => countAdminUnreadConversations(adminToken).then(({ count }) => count)
+        : null,
+    [adminToken],
+  );
+  const unreadCount = useUnreadCount(fetchUnread);
 
   async function handleAdminLogin(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -571,43 +569,19 @@ function AdminPage() {
             className="inline-flex items-center gap-2 rounded-lg border border-input bg-card px-4 py-2 text-sm font-bold hover:bg-muted"
           >
             Client communications
+            <UnreadBadge count={unreadCount} />
           </Link>
         </header>
 
         <AdminDocumentsPanel adminToken={adminToken} />
-        {showUnreadAlert && (
-          <div
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="unread-alert-title"
-          >
-            <div className="w-full max-w-md rounded-2xl border border-border bg-card p-6 shadow-xl">
-              <h2 id="unread-alert-title" className="text-xl font-extrabold">
-                Unread client messages
-              </h2>
-              <p className="mt-3 text-sm text-muted-foreground">
-                You have {unreadCount} unread client conversation{unreadCount === 1 ? "" : "s"}.
-                Please click <strong>Client communications</strong> to respond to your clients first.
-              </p>
-              <div className="mt-6 flex flex-wrap justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => setShowUnreadAlert(false)}
-                  className="rounded-lg border border-input px-4 py-2 text-sm font-bold hover:bg-muted"
-                >
-                  Later
-                </button>
-                <Link
-                  to="/admin/communications"
-                  className="rounded-lg bg-primary px-4 py-2 text-sm font-bold text-primary-foreground hover:opacity-90"
-                >
-                  Client communications
-                </Link>
-              </div>
-            </div>
-          </div>
-        )}
+        <UnreadMessagesBanner
+          count={unreadCount}
+          to="/admin/communications"
+          title={`${unreadCount} unread client conversation${unreadCount === 1 ? "" : "s"}`}
+          description="Clients are waiting for a reply. Open Client communications when you're ready."
+          actionLabel="View messages"
+          storageKey="easyEquitiesAdminUnreadDismissed"
+        />
 
         <section className="mb-8 rounded-2xl border border-border bg-card p-5 shadow-sm sm:p-7">
           <div className="mb-5">

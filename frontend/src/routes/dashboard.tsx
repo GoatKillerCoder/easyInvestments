@@ -11,13 +11,20 @@ import {
   Plus,
   Wallet,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { PortfolioPerformanceChart } from "@/components/portfolio-performance-chart";
+import {
+  UnreadBadge,
+  UnreadMessagesBanner,
+  useUnreadCount,
+} from "@/components/unread-messages";
+import { listClientConversations } from "@/lib/communication-data";
 import { formatPct, useSimulatedMarket } from "@/lib/market-simulation";
 import {
   calculatePortfolioValue,
   formatRand,
   getActiveManualAccount,
+  getUserSessionToken,
   type ManualAccount,
 } from "@/lib/manual-account-data";
 import {
@@ -73,6 +80,13 @@ function ChangeBadge({ pct, tick }: { pct: number; tick: -1 | 0 | 1 }) {
 }
 
 function Dashboard() {
+  const fetchUnread = useCallback(async () => {
+    const token = getUserSessionToken();
+    if (!token) return 0;
+    const conversations = await listClientConversations(token);
+    return conversations.filter((conversation) => conversation.unread).length;
+  }, []);
+  const unreadCount = useUnreadCount(fetchUnread);
   const [notice, setNotice] = useState("");
   const [account, setAccount] = useState<ManualAccount | undefined>();
   const [userName, setUserName] = useState("Investor");
@@ -141,6 +155,7 @@ function Dashboard() {
                 >
                   <LayoutDashboard className="size-4" aria-hidden="true" />
                   <span className="hidden sm:inline">Portfolio</span>
+                  <UnreadBadge count={unreadCount} />
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start" className="w-56">
@@ -168,6 +183,9 @@ function Dashboard() {
                         }
                       >
                         {item}
+                        {item === "Communication" && (
+                          <UnreadBadge count={unreadCount} className="ml-auto" />
+                        )}
                       </Link>
                     </DropdownMenuItem>
                   ) : (
@@ -200,6 +218,14 @@ function Dashboard() {
         </header>
 
         <section id="portfolio" className="py-8 sm:py-10">
+          <UnreadMessagesBanner
+            count={unreadCount}
+            to="/communication"
+            title={unreadCount === 1 ? "You have a new message" : `You have ${unreadCount} unread conversations`}
+            description="Our support team has replied. Open your messages whenever you're ready."
+            actionLabel="Open messages"
+            storageKey="easyEquitiesClientUnreadDismissed"
+          />
           <div className="mb-7 flex flex-wrap items-end justify-between gap-4">
             <div>
               <p className="mb-2 text-sm font-bold uppercase tracking-[0.16em] text-primary">
