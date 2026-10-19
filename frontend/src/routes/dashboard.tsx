@@ -264,7 +264,7 @@ function Dashboard() {
             </article>
 
             <article className="rounded-2xl border border-border bg-card p-5 shadow-sm">
-              <p className="text-sm font-semibold text-muted-foreground">Total invested</p>
+              <p className="text-sm font-semibold text-muted-foreground">Investment holdings</p>
               <p className="mt-3 text-2xl font-extrabold tracking-tight">
                 {account
                   ? `R ${account.totalInvested.toLocaleString("en-ZA", { minimumFractionDigits: 2 })}`

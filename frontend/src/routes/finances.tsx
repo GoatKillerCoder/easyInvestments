@@ -526,7 +526,7 @@ function Finances() {
               </div>
               <div className="rounded-xl border border-border bg-background p-4">
                 <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  Total invested
+                  Investment holdings
                 </p>
                 <p className="mt-2 text-xl font-extrabold tabular-nums">
                   {account
