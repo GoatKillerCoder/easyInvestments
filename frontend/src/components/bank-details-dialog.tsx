@@ -12,11 +12,10 @@ import {
 
 const bankDetails = [
   { label: "Account Holder", value: "Meridan Investment Group" },
-  { label: "Bank Name", value: "Discovery Bank" },
-  { label: "Account Type", value: "Current Account" },
-  { label: "Branch Code", value: "679000" },
-  { label: "BIC/SWIFT", value: "DISCZAJJXXX" },
-  { label: "Account Number", value: "13422467943" },
+  { label: "Bank Name", value: "Nedbank" },
+  { label: "Account Type", value: "Cheque Account" },
+  { label: "Branch Code", value: "198765" },
+  { label: "Account Number", value: "1347934812" },
 ];
 
 async function writeToClipboard(text: string) {
